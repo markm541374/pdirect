@@ -15,7 +15,7 @@ def f(x,data):
     A,b,c=data
     x.resize([3,1])
     j=0
-    for i in xrange(int(1e4)):
+    for i in xrange(int(1e5)):
         j+=1
     y=(x-b).T.dot(spl.solve(A.dot(A.T),(x-b)))
     return y
@@ -81,7 +81,7 @@ class fmanager:
         return [i[1] for i in solns]
 
 
-n=1000
+n=100
 x = [sp.random.uniform(-2,2,size=[3,1]) for i in range(n)]
 #print mess
 
@@ -104,7 +104,7 @@ te = time.time()
 total = te-ts
 
 print "---------------------------------\npar:"
-print "total mean %init: [{} , {} , {}]".format(total,(te-tint)/float(n),(tint-ts))
+print "total mean init: [{} , {} , {}]".format(total,(te-tint)/float(n),(tint-ts))
 print "---------------------------------\n"
 
 print 'error {}'.format(max([abs(i-j) for i,j in zip(q0,q1)]))

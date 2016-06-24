@@ -5,8 +5,8 @@ sys.path.append("test")
 
 def main():
     #import DIRECTtest
-    #import cythontest
-    import multitest
+    import cythontest
+    #import multitest
 
 if __name__=="__main__":
     sys.exit(main())
