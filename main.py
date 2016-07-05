@@ -5,9 +5,9 @@ sys.path.append("test")
 
 def main():
     #import DIRECTtest
-    import maintest
+    #import maintest
     #import multitest
-    #import lrhulltest
+    import lrhulltest
 
 if __name__=="__main__":
     sys.exit(main())

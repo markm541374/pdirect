@@ -1,13 +1,23 @@
 import numpy as np
+import cython
 
-class pt3:
-    def __init__(self,n,d):
+cdef class pt3:
+    cdef public int n
+    cdef public int d
+
+    def __init__(self,int n,int d):
         #points are n/d
+        while n%3==0 and d%3==0:
+            n/=3
+            d/=3
         self.n=n
         self.d=d
         return
+
+    @cython.cdivision(True)
     def __float__(self):
-        return self.n/float(self.d)
+        cdef double f = (<double>self.n)/(<double>self.d)
+        return f
 
 
 class rectangle:
@@ -36,8 +46,12 @@ class rectangle:
             n = ep[i*2][i].n
             d = ep[i*2][i].d
             s = self.sides[i]
-            ep[i*2][i] = pt3(n*3**(s+1)+d,d*3**(s+1))
-            ep[i*2+1][i]=pt3(n*3**(s+1)-d,d*3**(s+1))
+            try:
+                ep[i*2][i] = pt3(n*3**(s+1)+d,d*3**(s+1))
+                ep[i*2+1][i]=pt3(n*3**(s+1)-d,d*3**(s+1))
+            except:
+                print [n*3**(s+1)+d,d*3**(s+1)]
+                raise
         self.ep = ep
         return ep
 
@@ -75,7 +89,7 @@ def splitrect(r0,Y):
 def lrhull(x,y):
     #returns the indicies of the lower right convex hull of ordered x,y input
 
-    n = len(x)
+    cdef int n = len(x)
     if n==1:
         return [0]
     if n==2:
@@ -84,14 +98,14 @@ def lrhull(x,y):
         else:
             return [0,1]
 
-    first=0
+    cdef int first=0
     c=y[0]
     for i in range(1,n):
         if y[i]<c:
             first=i
             c=y[i]
     CH = [first]
-    ileft = first
+    cdef int ileft = first
     while ileft<n-1:
         x0=x[ileft]
         y0=y[ileft]
@@ -158,7 +172,7 @@ class rectgrid():
         #print [mx-mn,mn,po,d,c]
         return [mx-mn-1-p+mn for p in po]
 
-def direct(f,lb,ub,vfrac=0.00001):
+def direct(f,lb,ub,vfrac=0.0000001,maxeval=2000):
     d = len(ub)
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
     gridmax = int(-np.log(vfrac)/(d*np.log(3.)))+1
@@ -188,8 +202,14 @@ def direct(f,lb,ub,vfrac=0.00001):
     #import copy
     #Tarx=[copy.deepcopy(T)]
 
-    for i in xrange(26):
-        print "step {}".format(i)
+
+    cdef int k
+    cdef int j
+    cdef int nstep
+
+    nstep=0
+    while evcount<maxeval:
+        print "step {}".format(nstep)
         poi = T.porect()
         por = []
         for j in poi:
@@ -205,15 +225,16 @@ def direct(f,lb,ub,vfrac=0.00001):
         yr = evalbatch(allep)
         evcount += len(allep)
         print "evcount {}".format(evcount)
+
         k=0
         j=0
         for r in por:
             newr = splitrect(r,yr[k:k+plens[j]])
             k+=plens[j]
             j+=1
-            for i in range(len(newr)):
+            for i in xrange(len(newr)):
                 T.insert(newr[i])
 
-
+        nstep +=1
         #Tarx.append(copy.deepcopy(T))
     return {'T':T}

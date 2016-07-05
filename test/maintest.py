@@ -1,7 +1,7 @@
 import pyximport
 pyximport.install()
 
-
+import time
 def plotr2(ax,rect,opt='b-'):
     x = [rect.xf[0]+rect.sf[0],rect.xf[0]+rect.sf[0],rect.xf[0]-rect.sf[0],rect.xf[0]-rect.sf[0],rect.xf[0]+rect.sf[0]]
     y = [rect.xf[1]+rect.sf[1],rect.xf[1]-rect.sf[1],rect.xf[1]-rect.sf[1],rect.xf[1]+rect.sf[1],rect.xf[1]+rect.sf[1]]
@@ -50,8 +50,10 @@ def h(x):
     y=x[1]*(x[0]*0.1+1.5)+0.1
     u=x[0]
     return (u+1.5)*(u+1.5)*(u-0.5)*(u-0.5)+(y+0.75)*(y+0.25)*(y-1.25)*(y-1.75)
+t0=time.clock()
 s = dr.direct(h,[-2.,-1.],[1.,2.])
-
+t1=time.clock()
+print "time {}".format(t1-t0)
 
 from matplotlib import pyplot as plt
 
