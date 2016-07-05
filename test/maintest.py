@@ -54,13 +54,13 @@ s = dr.direct(h,[-2.,-1.],[1.,2.])
 
 
 from matplotlib import pyplot as plt
-for i in range(len(s['Tarx'])):
 
-    f = plt.figure(figsize=(8,4))
-    a = f.add_subplot(1,2,1)
-    plotT(a,s['Tarx'][i])
-    a = f.add_subplot(1,2,2)
-    plotgrid(a,s['Tarx'][i])
+f = plt.figure(figsize=(8,4))
+a = f.add_subplot(1,2,1)
+plotT(a,s['T'])
+a = f.add_subplot(1,2,2)
+plotgrid(a,s['T'])
 
 plt.show()
+
 

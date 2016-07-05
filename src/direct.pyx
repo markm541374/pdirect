@@ -19,7 +19,7 @@ class rectangle:
         #side is a power of 3, radius = 0.5/3**s
         self.sides = sides
         self.sf = [0.5/float(3**i) for i in self.sides]
-        self.r = int(max(self.sides))
+        self.r = int(min(self.sides))
         self.divaxes = []
         m = min(self.sides)
         for i in range(self.d):
@@ -69,11 +69,47 @@ def splitrect(r0,Y):
         rects.append(rectangle(x,s,Y[2*ax+1]))
 
         r0.sides[ax]+=1
-    rects.append(r0)
+    rects.append(rectangle(r0.x,r0.sides,r0.y))
     return rects
+
+def lrhull(x,y):
+    #returns the indicies of the lower right convex hull of ordered x,y input
+
+    n = len(x)
+    if n==1:
+        return [0]
+    if n==2:
+        if y[0]>y[1]:
+            return [1]
+        else:
+            return [0,1]
+
+    first=0
+    c=y[0]
+    for i in range(1,n):
+        if y[i]<c:
+            first=i
+            c=y[i]
+    CH = [first]
+    ileft = first
+    while ileft<n-1:
+        x0=x[ileft]
+        y0=y[ileft]
+        mbest=(y[ileft+1]-y0)/(x[ileft+1]-x0)
+        ileft+=1
+        for i in range(ileft+1,n):
+            m=(y[i]-y0)/(x[i]-x0)
+            if m<mbest:
+                mbest=m
+                ileft=i
+        CH.append(ileft)
+    #CH.append(n-1)
+    return CH
 
 class rectgrid():
     def __init__(self,n):
+        self.n=n
+        self.d = [0.5/float(3**i) for i in range(n)]
         self.grid = [[] for i in range(n)]
         return
     def __str__(self):
@@ -91,20 +127,42 @@ class rectgrid():
 
     def insert(self,rect):
         k = rect.r
-        if len(self.grid[k])==0:
+        l = len(self.grid[k])
+        if l==0:
             self.grid[k].append(rect)
         else:
             i=0
-            while self.grid[k][i].y>rect.y:
+            while i<l:
+                if self.grid[k][i].y<rect.y:
+                    break
+                #print [k,i]
                 i+=1
             self.grid[k].insert(i,rect)
         return
 
+    def porect(self):
+        for mn in range(self.n):
+            if len(self.grid[mn])!=0:
+                break
 
-def direct(f,lb,ub,vfrac=0.001):
+        for mx in range(mn,self.n):
+            if len(self.grid[mx])==0:
+                break
+
+        d = self.d[mn:mx]
+        c = [self.grid[i][-1].y for i in range(mn,mx)]
+        c.reverse()
+        d.reverse()
+
+        po = lrhull(d,c)
+        #print [mx-mn,mn,po,d,c]
+        return [mx-mn-1-p+mn for p in po]
+
+def direct(f,lb,ub,vfrac=0.00001):
     d = len(ub)
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
     gridmax = int(-np.log(vfrac)/(d*np.log(3.)))+1
+
     def norm2true(norm):
         true = np.empty(d)
         for i in range(d):
@@ -118,24 +176,44 @@ def direct(f,lb,ub,vfrac=0.001):
         return norm
 
     def evalbatch(X):
-        #print [norm2true(x) for x in X]
+        print "batch of size {}".format(len(X))
         return map(f,[norm2true(x) for x in X])
 
     y0 = evalbatch([[pt3(1,2)]*d])[0]
+    evcount = 1
     r0 = rectangle([pt3(1,2)]*d,[int(0)]*d,y0)
-    T = rectgrid(gridmax+1)
-    print T
-    T.insert(r0)
-    print T
-    rs=T.pop(0)
-    x1 = r0.epoints()
-    y1 = evalbatch(x1)
-    newrects = splitrect(r0,y1)
-    for i in range(len(newrects)):
-        T.insert(newrects[i])
-    print T
-    x2 = newrects[2].epoints()
-    y2 = evalbatch(x2)
-    newrects2 = splitrect(newrects[2],y2)
 
-    return locals()
+    T = rectgrid(gridmax+1)
+    T.insert(r0)
+    #import copy
+    #Tarx=[copy.deepcopy(T)]
+
+    for i in xrange(26):
+        print "step {}".format(i)
+        poi = T.porect()
+        por = []
+        for j in poi:
+            por.append(T.pop(j))
+
+        allep=[]
+        plens=[]
+        for r in por:
+            thisep = r.epoints()
+            allep += thisep
+            plens += [len(thisep)]
+
+        yr = evalbatch(allep)
+        evcount += len(allep)
+        print "evcount {}".format(evcount)
+        k=0
+        j=0
+        for r in por:
+            newr = splitrect(r,yr[k:k+plens[j]])
+            k+=plens[j]
+            j+=1
+            for i in range(len(newr)):
+                T.insert(newr[i])
+
+
+        #Tarx.append(copy.deepcopy(T))
+    return {'T':T}
