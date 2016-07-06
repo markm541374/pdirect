@@ -1,9 +1,16 @@
 import numpy as np
+cimport numpy as np
 import cython
+#from libcpp.vector cimport vector
 
 cdef class pt3:
-    cdef public int n
-    cdef public int d
+    cdef int n
+    cdef int d
+
+    property d:
+        def __get__(self): return self.d
+    property n:
+        def __get__(self): return self.n
 
     def __init__(self,int n,int d):
         #points are n/d
@@ -18,6 +25,7 @@ cdef class pt3:
     def __float__(self):
         cdef double f = (<double>self.n)/(<double>self.d)
         return f
+
 
 
 class rectangle:
@@ -86,10 +94,16 @@ def splitrect(r0,Y):
     rects.append(rectangle(r0.x,r0.sides,r0.y))
     return rects
 
-def lrhull(x,y):
+
+@cython.boundscheck(False)
+
+def lrhull(np.ndarray xp,np.ndarray yp):
     #returns the indicies of the lower right convex hull of ordered x,y input
 
-    cdef int n = len(x)
+    cdef double [:] x = xp
+    cdef double [:] y = yp
+    cdef int n = x.shape[0]
+
     if n==1:
         return [0]
     if n==2:
@@ -99,13 +113,19 @@ def lrhull(x,y):
             return [0,1]
 
     cdef int first=0
-    c=y[0]
+    cdef double c = y[0]
     for i in range(1,n):
         if y[i]<c:
             first=i
             c=y[i]
+
+    #cdef vector[int] ch
+    #ch.push_back(first)
     CH = [first]
+
     cdef int ileft = first
+    cdef double x0, y0 ,mbest, m
+
     while ileft<n-1:
         x0=x[ileft]
         y0=y[ileft]
@@ -117,7 +137,9 @@ def lrhull(x,y):
                 mbest=m
                 ileft=i
         CH.append(ileft)
+        #ch.push_back(ileft)
     #CH.append(n-1)
+
     return CH
 
 class rectgrid():
@@ -168,14 +190,15 @@ class rectgrid():
         c.reverse()
         d.reverse()
 
-        po = lrhull(d,c)
+        po = lrhull(np.array(d),np.array(c))
         #print [mx-mn,mn,po,d,c]
         return [mx-mn-1-p+mn for p in po]
 
-def direct(f,lb,ub,vfrac=0.0000001,maxeval=2000):
-    d = len(ub)
+def direct(f,lb,ub,double vfrac=0.0000001,int maxeval=2000):
+
+    cdef int d = len(ub)
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
-    gridmax = int(-np.log(vfrac)/(d*np.log(3.)))+1
+    cdef int gridmax = int(-np.log(vfrac)/(d*np.log(3.)))+1
 
     def norm2true(norm):
         true = np.empty(d)
@@ -194,7 +217,7 @@ def direct(f,lb,ub,vfrac=0.0000001,maxeval=2000):
         return map(f,[norm2true(x) for x in X])
 
     y0 = evalbatch([[pt3(1,2)]*d])[0]
-    evcount = 1
+    cdef int evcount = 1
     r0 = rectangle([pt3(1,2)]*d,[int(0)]*d,y0)
 
     T = rectgrid(gridmax+1)
@@ -203,11 +226,9 @@ def direct(f,lb,ub,vfrac=0.0000001,maxeval=2000):
     #Tarx=[copy.deepcopy(T)]
 
 
-    cdef int k
-    cdef int j
-    cdef int nstep
+    cdef int k,j
+    cdef int nstep =0
 
-    nstep=0
     while evcount<maxeval:
         print "step {}".format(nstep)
         poi = T.porect()
