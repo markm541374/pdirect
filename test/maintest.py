@@ -1,5 +1,6 @@
+import numpy as np
 import pyximport
-pyximport.install()
+pyximport.install(setup_args={ "include_dirs":np.get_include()})
 
 import time
 def plotr2(ax,rect,opt='b-'):
@@ -50,10 +51,16 @@ def h(x):
     y=x[1]*(x[0]*0.1+1.5)+0.1
     u=x[0]
     return (u+1.5)*(u+1.5)*(u-0.5)*(u-0.5)+(y+0.75)*(y+0.25)*(y-1.25)*(y-1.75)
-t0=time.clock()
+
 s = dr.direct(h,[-2.,-1.],[1.,2.])
-t1=time.clock()
-print "time {}".format(t1-t0)
+
+
+import pstats, cProfile
+cProfile.runctx("q=dr.direct(h,[-2.,-1.],[1.,2.])",globals(),locals(),"Profile.prof")
+v = pstats.Stats("Profile.prof")
+v.strip_dirs().sort_stats("time").print_stats()
+
+
 
 from matplotlib import pyplot as plt
 

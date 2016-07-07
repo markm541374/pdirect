@@ -4,7 +4,7 @@
 import numpy as np
 cimport numpy as np
 import cython
-#from libcpp.vector cimport vector
+from libcpp.vector cimport vector
 
 cdef class pt3:
     cdef int n
@@ -30,6 +30,36 @@ cdef class pt3:
         return f
 
 
+cdef class fpt:
+    cdef readonly int D
+    cdef readonly vector[int] n
+    cdef readonly vector[int] d
+    cdef readonly vector[double] f
+    @cython.cdivision(True)
+    def __init__(self,int D, vector[int] n0, vector[int] d0):
+        self.D=D
+        self.n.resize(D)
+        self.d.resize(D)
+        self.f.resize(D)
+        for i in range(D):
+
+            self.n[i]=n0[i]
+            self.d[i]=d0[i]
+            while self.n[i]%3==0 and self.d[i]%3==0:
+                self.n[i]/=3
+                self.d[i]/=3
+            self.f[i]=<double>n0[i]/<double>d0[i]
+        return
+
+def testfpt():
+    cdef int D=5
+    cdef vector[int] n = [1,2,3,3,4]
+    cdef vector[int] d = [2,3,4,6,6]
+    cdef fpt r = fpt(D,n,d)
+    print r
+    for i in range(r.D):
+        print [r.n[i],r.d[i],r.f[i]]
+    return
 
 class rectangle:
     def __init__(self,x,sides,y):

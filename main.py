@@ -7,7 +7,9 @@ def main():
     #import DIRECTtest
     #import maintest
     #import multitest
-    import lrhulltest
+    #import lrhulltest
+    #import scratchtest
+    import ctest
 
 if __name__=="__main__":
     sys.exit(main())

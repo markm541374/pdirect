@@ -1,5 +1,6 @@
+import numpy as np
 import pyximport
-pyximport.install()
+pyximport.install(setup_args={ "include_dirs":np.get_include()})
 
 import direct as dr
 import time
@@ -14,13 +15,21 @@ x=np.linspace(0,1,145)
 y=np.random.uniform(0,1,145)+0.5*x
 
 a.plot(x,y,'b.')
-T=[]
-for i in xrange(10000):
-    t0=time.clock()
-    ch = dr.lrhull(x,y)
-    t1=time.clock()
-    T.append(t1-t0)
-print "time {}".format(sum(T)/100.)
+
+
+
+import pstats, cProfile
+def loop():
+    for i in xrange(100000):
+        ch = dr.lrhull(x,y)
+
+
+cProfile.runctx("loop()",globals(),locals(),"Profile.prof")
+s = pstats.Stats("Profile.prof")
+s.strip_dirs().sort_stats("time").print_stats()
+
+
+ch = dr.lrhull(x,y)
 xh = [x[i] for i in ch]
 yh = [y[i] for i in ch]
 a.plot(xh,yh,'ro-')
