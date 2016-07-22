@@ -24,7 +24,7 @@ lb = sp.ones(3)*-2.
 ub = sp.ones(3)*2.
 
 ts=time.clock()
-xmin,ymin,mess = DIRECT.solve(f,lb,ub)
+xmin,ymin,mess = DIRECT.solve(f,lb,ub,maxf=20000)
 te=time.clock()
 print "total time {}".format(te-ts)
 print "xmin {}".format(xmin.flatten())

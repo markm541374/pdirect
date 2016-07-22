@@ -56,7 +56,7 @@ s = dr.direct(h,[-2.,-1.],[1.,2.])
 
 
 import pstats, cProfile
-cProfile.runctx("q=dr.direct(h,[-2.,-1.],[1.,2.])",globals(),locals(),"Profile.prof")
+cProfile.runctx("q=dr.direct(h,[-2.,-1.],[1.,2.],maxf=20000)",globals(),locals(),"Profile.prof")
 v = pstats.Stats("Profile.prof")
 v.strip_dirs().sort_stats("time").print_stats()
 

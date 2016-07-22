@@ -78,14 +78,15 @@ cdef class crect:
         return ep
 
 
-def splitrect(r0,Y):
-    cdef int nsplits = len(r0.divaxes)
-    ya = np.empty(nsplits)
+def splitrect(crect r0,Y):
+    cdef int nsplits = r0.divaxes.size()
+    cdef vector[double] ya = vector[double](nsplits)
     for i in range(nsplits):
         ya[i] = min(Y[i*2],Y[i*2+1])
 
-    axorder = [-1]*nsplits
-    eporder = [-1]*nsplits
+    cdef vector[int] axorder = vector[int](nsplits)
+    cdef vector[int] eporder = vector[int](nsplits)
+    cdef int k,j
     for i in range(nsplits):
         k = np.argmin(ya)
         j = r0.divaxes[k]
@@ -173,15 +174,19 @@ class rectgrid():
     def pop(self, i):
         return self.grid[i].pop()
 
-    def insert(self,rect):
+    def insert(self,crect rect):
+        cdef int i,k,l
         k = rect.r
         l = len(self.grid[k])
+        cdef double recty,tmp
+        recty=rect.y
         if l==0:
             self.grid[k].append(rect)
         else:
             i=0
             while i<l:
-                if self.grid[k][i].y<rect.y:
+                tmp = self.grid[k][i].y
+                if tmp<recty:
                     break
                 #print [k,i]
                 i+=1
@@ -206,7 +211,7 @@ class rectgrid():
         #print [mx-mn,mn,po,d,c]
         return [mx-mn-1-p+mn for p in po]
 
-def direct(f,lb,ub,double vfrac=0.0000001,int maxeval=2000):
+def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
     print 'start'
     cdef int d = len(ub)
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
