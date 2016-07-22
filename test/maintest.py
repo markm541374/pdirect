@@ -4,10 +4,10 @@ pyximport.install(setup_args={ "include_dirs":np.get_include()})
 
 import time
 def plotr2(ax,rect,opt='b-'):
-    x = [rect.xf[0]+rect.sf[0],rect.xf[0]+rect.sf[0],rect.xf[0]-rect.sf[0],rect.xf[0]-rect.sf[0],rect.xf[0]+rect.sf[0]]
-    y = [rect.xf[1]+rect.sf[1],rect.xf[1]-rect.sf[1],rect.xf[1]-rect.sf[1],rect.xf[1]+rect.sf[1],rect.xf[1]+rect.sf[1]]
+    x = [rect.x.f[0]+rect.sf[0],rect.x.f[0]+rect.sf[0],rect.x.f[0]-rect.sf[0],rect.x.f[0]-rect.sf[0],rect.x.f[0]+rect.sf[0]]
+    y = [rect.x.f[1]+rect.sf[1],rect.x.f[1]-rect.sf[1],rect.x.f[1]-rect.sf[1],rect.x.f[1]+rect.sf[1],rect.x.f[1]+rect.sf[1]]
     ax.plot(x,y,opt)
-    ax.plot(rect.xf[0],rect.xf[1],'b.')
+    ax.plot(rect.x.f[0],rect.x.f[1],'b.')
     #ax.text(rect.xf[0],rect.xf[1],str(rect.y)[:5],fontsize=8)
 
     return

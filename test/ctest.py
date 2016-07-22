@@ -5,4 +5,4 @@ pyximport.install(setup_args={ "include_dirs":np.get_include()})
 
 import direct as dr
 
-dr.testfpt()
+dr.testcrect()
