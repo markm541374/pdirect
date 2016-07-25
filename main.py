@@ -4,8 +4,8 @@ sys.path.append("src")
 sys.path.append("test")
 
 def main():
-    import DIRECTtest
-    #import maintest
+    #import DIRECTtest
+    import maintest
     #import multitest
     #import lrhulltest
     #import scratchtest

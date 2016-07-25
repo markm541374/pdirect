@@ -19,13 +19,13 @@ def plotgrid(ax,grid):
     for i in range(len(grid.grid)):
 
         for j in range(len(grid.grid[i])):
-            y=grid.grid[i][j].y
+            y=grid.allrects[grid.grid[i][j]].y
             ax.plot(grid.d[i],y,'b.')
 
     po = grid.porect()
     #print po
     xo = [grid.d[i] for i in po]
-    yo = [grid.grid[i][-1].y for i in po]
+    yo = [grid.allrects[grid.grid[i][-1]].y for i in po]
     ax.plot(xo,yo,'ro-')
     ax.margins(x=0.1,y=0.1)
     return
@@ -33,9 +33,9 @@ def plotgrid(ax,grid):
 def plotT(ax,T):
     for i in range(len(T.grid)):
         for j in range(len(T.grid[i])):
-            plotr2(ax,T.grid[i][j])
+            plotr2(ax,T.allrects[T.grid[i][j]])
     po = T.porect()
-    [plotr2(ax,T.grid[p][-1],'r-') for p in po]
+    [plotr2(ax,T.allrects[T.grid[p][-1]],'r-') for p in po]
     ax.margins(x=0.05, y=0.05)
 
 import direct as dr

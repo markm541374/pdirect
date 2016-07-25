@@ -1,10 +1,14 @@
 #cython: profile=True
 
-
 import numpy as np
 cimport numpy as np
 import cython
 from libcpp.vector cimport vector
+
+cdef inline int int_max(int a, int b): return a if a >= b else b
+cdef inline int int_min(int a, int b): return a if a <= b else b
+cdef inline double dbl_max(double a, double b): return a if a >= b else b
+cdef inline double dbl_min(double a, double b): return a if a <= b else b
 
 cdef class fpt:
     cdef readonly int D
@@ -36,17 +40,19 @@ cdef class crect:
     cdef readonly vector[double] sf
     cdef readonly int r
     cdef readonly vector[int] divaxes
-
+    @cython.cdivision(True)
     def __init__(self,fpt x0, vector[int] sides0, double y):
         self.x = x0
         self.y = y
         self.D = self.x.D
         self.sides.resize(self.D)
         self.sf.resize(self.D)
+        self.r=sides0[0]
         for i in range(self.D):
             self.sides[i] = sides0[i]
             self.sf[i] = 0.5/<double>(3**sides0[i])
-        self.r = min(sides0)
+            self.r=int_min(self.r,sides0[i])
+
         cdef int m = self.r
         for i in range(self.D):
             if self.sides[i]==m:
@@ -81,8 +87,9 @@ cdef class crect:
 def splitrect(crect r0,Y):
     cdef int nsplits = r0.divaxes.size()
     cdef vector[double] ya = vector[double](nsplits)
+    cdef int i
     for i in range(nsplits):
-        ya[i] = min(Y[i*2],Y[i*2+1])
+        ya[i] = dbl_min(Y[i*2],Y[i*2+1])
 
     cdef vector[int] axorder = vector[int](nsplits)
     cdef vector[int] eporder = vector[int](nsplits)
@@ -160,50 +167,62 @@ class rectgrid():
         self.n=n
         self.d = [0.5/float(3**i) for i in range(n)]
         self.grid = [[] for i in range(n)]
+
+        self.allrects=[]
+        self.ri = 0
         return
     def __str__(self):
         s = 'rectgrid object:\n'
+        cdef int i,j
         for i in range(len(self.grid)):
             s+='['
             for j in range(len(self.grid[i])):
-                s+=str(self.grid[i][j].y)
+                s+=str(self.allrects[self.grid[i][j]].y)
                 s+=', '
             s+=']\n'
         return s
 
     def pop(self, i):
-        return self.grid[i].pop()
+        return self.allrects[self.grid[i].pop()]
 
     def insert(self,crect rect):
+        self.allrects.append(rect)
         cdef int i,k,l
         k = rect.r
         l = len(self.grid[k])
         cdef double recty,tmp
         recty=rect.y
         if l==0:
-            self.grid[k].append(rect)
+            self.grid[k].append(self.ri)
+            self.ri+=1
         else:
             i=0
             while i<l:
-                tmp = self.grid[k][i].y
+                tmp = self.allrects[self.grid[k][i]].y
                 if tmp<recty:
                     break
                 #print [k,i]
                 i+=1
-            self.grid[k].insert(i,rect)
+            self.grid[k].insert(i,self.ri)
+            self.ri+=1
+
         return
 
     def porect(self):
-        for mn in range(self.n):
+        cdef int mn=0
+        cdef int mx=0
+        cdef int i=0
+        cdef int n = self.n
+        for mn in range(n):
             if len(self.grid[mn])!=0:
                 break
 
-        for mx in range(mn,self.n):
+        for mx in range(mn,n):
             if len(self.grid[mx])==0:
                 break
 
         d = self.d[mn:mx]
-        c = [self.grid[i][-1].y for i in range(mn,mx)]
+        c = [self.allrects[self.grid[i][-1]].y for i in range(mn,mx)]
         c.reverse()
         d.reverse()
 
@@ -231,21 +250,27 @@ def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
 
     def evalbatch(X):
         print "batch of size {}".format(len(X))
-        return map(f,[norm2true(x) for x in X])
+        cdef int n = len(X)
+        cdef vector[double] y
+        y.resize(n)
+        for i in range(n):
+            y[i] = f(norm2true(X[i]))
+        return y
 
     cdef vector[int] o0 = [0]*d
     cdef vector[int] o1 = [1]*d
     cdef vector[int] o2 = [2]*d
-    y0 = evalbatch([fpt(d,o1,o2)])[0]
+    cdef vector[double] yr
+    yr=evalbatch([fpt(d,o1,o2)])
     cdef int evcount = 1
-    r0 = crect(fpt(d,o1,o2),o0,y0)
+    r0 = crect(fpt(d,o1,o2),o0,yr[0])
 
     T = rectgrid(gridmax+1)
     T.insert(r0)
     cdef int k,j
     cdef int nstep =0
 
-    while evcount<maxeval:
+    while evcount<maxf:
         print "step {}".format(nstep)
         poi = T.porect()
         por = []
@@ -259,7 +284,7 @@ def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
             allep += thisep
             plens += [len(thisep)]
 
-        yr = evalbatch(allep)
+        yr=evalbatch(allep)
         evcount += len(allep)
         print "evcount {}".format(evcount)
 
