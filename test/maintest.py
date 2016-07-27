@@ -1,6 +1,7 @@
 import numpy as np
 import pyximport
 pyximport.install(setup_args={ "include_dirs":np.get_include()})
+import direct as dr
 
 import time
 def plotr2(ax,rect,opt='b-'):
@@ -12,7 +13,14 @@ def plotr2(ax,rect,opt='b-'):
 
     return
 
-def plotgrid(ax,grid):
+def plotgrid(ax,Ti):
+    class null:
+        pass
+    grid=null()
+    grid.grid=Ti[1]
+    grid.allrects=Ti[0]
+    grid.d=Ti[2]
+    grid.n=Ti[3]
     #print grid
     mx=-1e99
     mn=1e99
@@ -22,7 +30,7 @@ def plotgrid(ax,grid):
             y=grid.allrects[grid.grid[i][j]].y
             ax.plot(grid.d[i],y,'b.')
 
-    po = grid.porect()
+    po = dr.getporect(grid.allrects,grid.grid,grid.n,grid.d)
     #print po
     xo = [grid.d[i] for i in po]
     yo = [grid.allrects[grid.grid[i][-1]].y for i in po]
@@ -30,15 +38,22 @@ def plotgrid(ax,grid):
     ax.margins(x=0.1,y=0.1)
     return
 
-def plotT(ax,T):
+def plotT(ax,Ti):
+    class null:
+        pass
+    T=null()
+    T.grid=Ti[1]
+    T.allrects=Ti[0]
+    T.d = Ti[2]
+    T.n = Ti[3]
     for i in range(len(T.grid)):
         for j in range(len(T.grid[i])):
             plotr2(ax,T.allrects[T.grid[i][j]])
-    po = T.porect()
+    po = dr.getporect(T.allrects,T.grid,T.n,T.d)
     [plotr2(ax,T.allrects[T.grid[p][-1]],'r-') for p in po]
     ax.margins(x=0.05, y=0.05)
 
-import direct as dr
+
 
 def f(x):
     u=x[0]+x[1]
@@ -52,7 +67,7 @@ def h(x):
     u=x[0]
     return (u+1.5)*(u+1.5)*(u-0.5)*(u-0.5)+(y+0.75)*(y+0.25)*(y-1.25)*(y-1.75)
 
-s = dr.direct(h,[-2.,-1.],[1.,2.])
+s = dr.direct(h,[-2.,-1.],[1.,2.],maxf=2000)
 
 
 import pstats, cProfile

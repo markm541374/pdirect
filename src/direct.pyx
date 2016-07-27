@@ -1,7 +1,7 @@
 #cython: profile=True
 
-import numpy as np
-cimport numpy as np
+from numpy import log as log
+
 import cython
 from libcpp.vector cimport vector
 
@@ -84,7 +84,7 @@ cdef class crect:
         return ep
 
 
-def splitrect(crect r0,Y):
+cdef splitrect(crect r0,Y):
     cdef int nsplits = r0.divaxes.size()
     cdef vector[double] ya = vector[double](nsplits)
     cdef int i
@@ -93,9 +93,18 @@ def splitrect(crect r0,Y):
 
     cdef vector[int] axorder = vector[int](nsplits)
     cdef vector[int] eporder = vector[int](nsplits)
-    cdef int k,j
+    cdef int k,j,l
+    cdef double tmp
+
     for i in range(nsplits):
-        k = np.argmin(ya)
+        k=0
+        tmp=ya[0]
+        for l in range(nsplits):
+            if ya[l]<tmp:
+                tmp=ya[l]
+                k=l
+
+
         j = r0.divaxes[k]
         axorder[i] = j
         eporder[i] = k
@@ -117,13 +126,9 @@ def splitrect(crect r0,Y):
 
 
 @cython.boundscheck(False)
-def lrhull(np.ndarray xp,np.ndarray yp):
-    #returns the indicies of the lower right convex hull of ordered x,y input
 
-    cdef double [:] x = xp
-    cdef double [:] y = yp
-    cdef int n = x.shape[0]
-
+cdef list lrhull(vector[double] x,vector[double] y):
+    cdef int n = x.size()
     if n==1:
         return [0]
     if n==2:
@@ -162,91 +167,64 @@ def lrhull(np.ndarray xp,np.ndarray yp):
 
     return CH
 
-class rectgrid():
-    def __init__(self,n):
-        self.n=n
-        self.d = [0.5/float(3**i) for i in range(n)]
-        self.grid = [[] for i in range(n)]
-
-        self.allrects=[]
-        self.ri = 0
-        return
-    def __str__(self):
-        s = 'rectgrid object:\n'
-        cdef int i,j
-        for i in range(len(self.grid)):
-            s+='['
-            for j in range(len(self.grid[i])):
-                s+=str(self.allrects[self.grid[i][j]].y)
-                s+=', '
-            s+=']\n'
-        return s
-
-    def pop(self, i):
-        return self.allrects[self.grid[i].pop()]
-
-    def insert(self,crect rect):
-        self.allrects.append(rect)
-        cdef int i,k,l
-        k = rect.r
-        l = len(self.grid[k])
-        cdef double recty,tmp
-        recty=rect.y
-        if l==0:
-            self.grid[k].append(self.ri)
-            self.ri+=1
-        else:
-            i=0
-            while i<l:
-                tmp = self.allrects[self.grid[k][i]].y
-                if tmp<recty:
-                    break
-                #print [k,i]
-                i+=1
-            self.grid[k].insert(i,self.ri)
-            self.ri+=1
-
-        return
-
-    def porect(self):
-        cdef int mn=0
-        cdef int mx=0
-        cdef int i=0
-        cdef int n = self.n
-        for mn in range(n):
-            if len(self.grid[mn])!=0:
+@cython.nonecheck(False)
+cdef void insert2grid(list rlist, int ri,list rk,int lrk,double recty):
+    cdef int i
+    cdef double tmp
+    if lrk==0:
+        rk.append(ri)
+    else:
+        i=0
+        while i<lrk:
+            tmp = rlist[rk[i]].y
+            if tmp<recty:
                 break
+            #print [k,i]
+            i+=1
+        rk.insert(i,ri)
 
-        for mx in range(mn,n):
-            if len(self.grid[mx])==0:
-                break
+    return
 
-        d = self.d[mn:mx]
-        c = [self.allrects[self.grid[i][-1]].y for i in range(mn,mx)]
-        c.reverse()
-        d.reverse()
+def getporect(list rlist,list rgrid,int n,d):
+    cdef int mn=0
+    cdef int mx=0
+    cdef int i=0
 
-        po = lrhull(np.array(d),np.array(c))
-        #print [mx-mn,mn,po,d,c]
-        return [mx-mn-1-p+mn for p in po]
+    for mn in range(n):
+        if len(rgrid[mn])!=0:
+            break
+
+    for mx in range(mn,n):
+        if len(rgrid[mx])==0:
+            break
+
+    cdef int r = mx-mn
+    cdef vector[double] x = vector[double](r)
+    cdef vector[double] y = vector[double](r)
+    for i in range(r):
+        x[r-1-i]=d[mn+i]
+        y[r-1-i]=rlist[rgrid[mn+i][-1]].y
+
+    cdef list po = lrhull(x,y)
+    #print [mx-mn,mn,po,d,c]
+    return [mx-mn-1-p+mn for p in po]
+
+
 
 def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
+
     print 'start'
+    cdef int i
     cdef int d = len(ub)
+
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
-    cdef int gridmax = int(-np.log(vfrac)/(d*np.log(3.)))+1
+    cdef int gridmax = int(-log(vfrac)/(d*log(3.)))+1
 
     def norm2true(fpt norm):
-        true = np.empty(d)
+        true = [0.]*d
         for i in range(d):
             true[i] = float(norm.f[i])*(ub[i]-lb[i])+lb[i]
         return true
-
-    #def true2norm(true):
-    #    norm = np.empty(d)
-    #    for i in xrange(d):
-    #        norm[i] = (true[i]-lb[i])/(ub[i]-lb[i])
-    #   return norm
 
     def evalbatch(X):
         print "batch of size {}".format(len(X))
@@ -257,6 +235,7 @@ def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
             y[i] = f(norm2true(X[i]))
         return y
 
+
     cdef vector[int] o0 = [0]*d
     cdef vector[int] o1 = [1]*d
     cdef vector[int] o2 = [2]*d
@@ -265,17 +244,30 @@ def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
     cdef int evcount = 1
     r0 = crect(fpt(d,o1,o2),o0,yr[0])
 
-    T = rectgrid(gridmax+1)
-    T.insert(r0)
+    Tn = gridmax+1
+    #cdef vector[double] Td = vector[double](Tn)
+    #for i in range(Tn):
+    #    Td[i] = 0.5/float(3**i)
+    Td = [0.5/float(3**i) for i in range(Tn)]
+
+
+    Tgrid = [[] for i in range(Tn)]
+
+    Tallrects=[r0]
+    insert2grid(Tallrects,0,Tgrid[r0.r],0,r0.y)
+    Tri=1
+
+
     cdef int k,j
     cdef int nstep =0
 
     while evcount<maxf:
         print "step {}".format(nstep)
-        poi = T.porect()
+        poi = getporect(Tallrects,Tgrid,Tn,Td)
         por = []
         for j in poi:
-            por.append(T.pop(j))
+            por.append(Tallrects[Tgrid[j].pop()])
+
 
         allep=[]
         plens=[]
@@ -296,9 +288,11 @@ def direct(f,lb,ub,double vfrac=0.0000001,int maxf=2000):
             k+=plens[j]
             j+=1
             for i in xrange(len(newr)):
-                T.insert(newr[i])
+                Tallrects.append(newr[i])
+                insert2grid(Tallrects,Tri,Tgrid[newr[i].r],len(Tgrid[newr[i].r]),newr[i].y)
+                Tri+=1
 
         nstep +=1
         #Tarx.append(copy.deepcopy(T))
 
-    return {'T':T}
+    return {'T':[Tallrects,Tgrid,Td,Tn]}
