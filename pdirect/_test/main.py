@@ -1,7 +1,7 @@
 __author__ = 'mark'
 import sys
 sys.path.append("src")
-sys.path.append("test")
+sys.path.append("_test")
 
 def main():
     #import DIRECTtest

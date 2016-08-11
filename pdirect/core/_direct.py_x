@@ -1,5 +1,6 @@
 #cython: profile=True
 
+
 from numpy import log as log
 
 import cython
@@ -31,6 +32,7 @@ cdef class fpt:
                 self.d[i]/=3
             self.f[i]=<double>n0[i]/<double>d0[i]
         return
+
 
 cdef class crect:
     cdef readonly fpt x
@@ -82,7 +84,6 @@ cdef class crect:
             N0[ax]=tmpn
             D0[ax]=tmpd
         return ep
-
 
 cdef splitrect(crect r0,Y):
     cdef int nsplits = r0.divaxes.size()
