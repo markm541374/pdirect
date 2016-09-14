@@ -9,9 +9,16 @@ def f(x):
 lb = [-2.,-1.]
 ub = [1.,2.]
 
+G,Y=d.direct(f,lb,ub,maxf=2000)
 
-
-import pstats, cProfile
+#print G
+import vis
+from matplotlib import pyplot as plt
+f,ax = plt.subplots(2,figsize=[6,12])
+vis.drawgrid(G,ax[0])
+vis.drawpomap(G,Y,ax[1])
+plt.show()
+"""import pstats, cProfile
 cProfile.runctx("[d.direct(f,lb,ub,maxf=2000) for i in xrange(1)]",globals(),locals(),"Profile.prof")
 v = pstats.Stats("Profile.prof")
-v.strip_dirs().sort_stats("time").print_stats()
+v.strip_dirs().sort_stats("time").print_stats()"""
