@@ -5,6 +5,8 @@ import cython
 import numpy as np
 cimport numpy as np
 
+import copy
+
 cdef inline int int_max(int a, int b): return a if a >= b else b
 cdef inline int int_min(int a, int b): return a if a <= b else b
 cdef inline double dbl_max(double a, double b): return a if a >= b else b
@@ -12,28 +14,40 @@ cdef inline double dbl_min(double a, double b): return a if a <= b else b
 
 
 cdef int splitpart2(int[:] r0, int D, int [:,:] G, double [:] Y,int n):
-    #nn is the number of div axes, there are 2n entries
-    cdef int i,j,i0,newc
+    print 'splitpart2: {} {}'.format([i for i in r0],n)
+    #n is the number of div axes, there are 2n entries
+    cdef int i,j,k,i0,newc
     cdef double t0,mx
     ym_ = np.empty(n)
     cdef double[:] ym = ym_
+    map_ = np.empty(n,dtype=np.dtype('i'))
+    cdef int[:] map = map_
+    j=0
+    for i in range(D):
+        if r0[D*2+1+i]==r0[0]:
+            map[j]=i
+            j+=1
+
     for i in range(n):
         ym[i] = dbl_min(Y[i*2],Y[i*2+1])
-
-    mx = ym[0]*1e9
+    print ym_
+    if n==2:
+        print ym[0]==ym[1]
+    mx = ym[0]
     for i in range(n):
         mx = dbl_max(mx,ym[i])
+    mx+=1.
     #chose axis with min y
     for i in range(n):
         t0 = ym[0]
         i0 = 0
         for j in range(1,n):
-            if ym[j]<t0:
+            if ym[j]<=t0:
                 i0=j
                 t0=ym[j]
-        #split on axis i0
-
-        r0[D*2+1+i0]+=1
+        #split on axis map[i0]
+        print 'split on {}'.format(map[i0])
+        r0[D*2+1+map[i0]]+=1
         newc=min(r0[D*2+1:])
         G[i0*2,D*2+1:]=r0[D*2+1:]
         G[i0*2+1,D*2+1:]=r0[D*2+1:]
@@ -89,7 +103,7 @@ cdef int evaluate(f, int [:] ToEv, int nToEv,double[:] lb, double[:] ub, int D, 
 
 cdef getporect1(int [:,:] G, double [:] Y, int nbins, int D):
     #return all min rectangles and their x and y
-    cdef int i,j,k
+    cdef int i,j,k,irev
     cdef int nr = Y.shape[0]
 
     #ry and ri are the yvalue and row in G of the min value at each size
@@ -101,10 +115,12 @@ cdef getporect1(int [:,:] G, double [:] Y, int nbins, int D):
     for i in range(nbins):
         ri[i]=-1
     for i in range(nr):
-        print i
+        #print i
         j=G[i,0]
-        print j
-        if ri[j]==-1:
+        #print j
+        if j>=nbins:
+            pass
+        elif ri[j]==-1:
             ri[j]=i
             ry[j]=Y[i]
         elif Y[i]<ry[j]:
@@ -112,7 +128,7 @@ cdef getporect1(int [:,:] G, double [:] Y, int nbins, int D):
             ry[j]=Y[i]
         else:
             pass
-    print [ri_,ry_]
+    #print [ri_,ry_]
     cdef int npor = 0
     for i in range(nbins):
         if ri[i]>=0:
@@ -124,7 +140,9 @@ cdef getporect1(int [:,:] G, double [:] Y, int nbins, int D):
     rout = np.empty(npor,dtype=np.dtype('d'))
 
     j=0
-    for i in range(nbins):
+    for irev in range(nbins):
+        #populate output in increasing r
+        i=nbins-irev-1
         #print xout
         if ri[i]>=0:
             iout[j]=ri[i]
@@ -133,8 +151,55 @@ cdef getporect1(int [:,:] G, double [:] Y, int nbins, int D):
             #    xout[j,k]=<double>G[ri[i],1+2*k]/<double>G[ri[i],2+2*k]
             rout[j]=0.5*3**(-<double>G[ri[i],0])
             j+=1
-    return iout,yout,rout
+    return iout,rout,yout
 
+cdef getporect2(int [:] I, double [:] x,double[:] y):
+    #print "getporect2"
+    cdef int n = x.shape[0]
+    if n==1:
+        P = np.empty(1,dtype=np.dtype('i'))
+        P[0]=I[0]
+        return P
+    if n==2:
+        if y[0]>y[1]:
+            P = np.empty(1,dtype=np.dtype('i'))
+            P[0]=I[1]
+            return P
+        else:
+            P = np.empty(2,dtype=np.dtype('i'))
+            P[0]=I[0]
+            P[1]=I[1]
+            return P
+
+    cdef int first=0
+    cdef double c = y[0]
+    for i in range(1,n):
+        if y[i]<c:
+            first=i
+            c=y[i]
+    CH = [first]
+
+    cdef int ileft = first
+    cdef double x0, y0 ,mbest, m
+
+    while ileft<n-1:
+        x0=x[ileft]
+        y0=y[ileft]
+        mbest=(y[ileft+1]-y0)/(x[ileft+1]-x0)
+        ileft+=1
+        for i in range(ileft+1,n):
+            m=(y[i]-y0)/(x[i]-x0)
+            if m<mbest:
+                mbest=m
+                ileft=i
+        CH.append(ileft)
+        #ch.push_back(ileft)
+    #CH.append(n-1)
+    n=len(CH)
+    P = np.empty(n,dtype=np.dtype('i'))
+    for i in range(n):
+        P[i] = I[<int>CH[i]]
+    return P
 
 def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000):
     #iterator indicies
@@ -147,9 +212,9 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000):
 
     #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
     cdef int gridmax = int(-np.log(vfrac)/(D*np.log(3.)))+1
-
-    G_ = np.empty(shape=[8+0*(maxf+gridmax+1),D*3+1],dtype=np.dtype('i'))
-    Y_ = np.empty(shape=[8+0*(maxf+gridmax+1)],dtype=np.dtype('d'))
+    print 'gridmax {}'.format(gridmax)
+    G_ = np.empty(shape=[(maxf+gridmax+1),D*3+1],dtype=np.dtype('i'))
+    Y_ = np.empty(shape=[(maxf+gridmax+1)],dtype=np.dtype('d'))
     cdef int [:,:] G = G_
     cdef double [:] Y = Y_
     cdef int tail = 1
@@ -170,17 +235,50 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000):
     #print reptof(G[0,1:],D,sv)
     #print s
     print G_[:tail,:]
-    print Y_
     m = splitpart1(G[0,:],D,G[1:,:])
     tail+=m
     nToEv=D*2+1
     for i in range(nToEv):
         ToEv[i]=i
     evaluate(f,ToEv,nToEv,lb,ub,D,G,Y)
+
     print G_[:tail,:]
-    print Y_
     n = splitpart2(G[0,:],D,G[1:,:],Y[1:],m/2)
     print G_[:tail,:]
-    print getporect1(G[:tail,:],Y[:tail],gridmax+1,D)
-    return G_[:tail,:],Y_[:tail]
+    cdef int nr
+    state=[]
+    for i in range(40):
+        print "___________________________"
+        I,R,Z = getporect1(G[:tail,:],Y[:tail],gridmax+1,D)
+        P = getporect2(I,R,Z)
+        print I,Z,R
+        print P
+        if i%4==0:
+            state.append(copy.deepcopy([G_[:tail,:],Y_[:tail],P]))
+        nr = P.shape[0]
+        heads = np.empty(nr,dtype=np.dtype('i'))
+        splits = np.empty(nr,dtype=np.dtype('i'))
+        nToEv=0
+        for j in range(nr):
+            splits[j] = splitpart1(G[<int>P[j],:],D,G[tail:,:])
+
+            heads[j]=tail
+            for k in range(splits[j]):
+                ToEv[nToEv+k]=tail+k
+            tail+=splits[j]
+            nToEv+=splits[j]
+
+        print G_[:tail,:]
+        print 'toev{}'.format(ToEv_[:nToEv])
+
+        evaluate(f,ToEv,nToEv,lb,ub,D,G,Y)
+        #print Y_[:tail]
+        for j in range(nr):
+            n = splitpart2(G[<int>P[j],:],D,G[heads[j]:,:],Y[heads[j]:],splits[j]/2)
+
+
+
+        print G_[:tail,:]
+
+    return state
 
