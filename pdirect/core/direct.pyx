@@ -272,7 +272,6 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
             debug_batches.append(nToEv)
         for j in range(nr):
             n = splitpart2(G[<int>P[j],:],D,G[heads[j]:,:],Y[heads[j]:],splits[j]/2)
-        print [maxf,tail]
         if tail>=maxf:
             stop=True
         i+=1
