@@ -37,5 +37,5 @@ def drawpomap(G,Y,P,ax):
     mn=min(Y)
     mx=max(Y)
     ax.axis([min(x)*0.9,max(x)*1.1,mn-0.1*(mx-mn),mx+0.1*(mx-mn)])
-    ax.set_xscale('log')
+    #ax.set_xscale('log')
     return

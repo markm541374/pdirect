@@ -1,9 +1,9 @@
 #cython: profile=True
-
+#TODO check overflow safety
 import cython
 import numpy as np
 cimport numpy as np
-
+from cpython cimport bool
 import copy
 
 cdef inline int int_max(int a, int b): return a if a >= b else b
@@ -204,7 +204,8 @@ cdef getporect2(int [:] I, double [:] x,double[:] y):
         P[i] = I[<int>CH[i]]
     return P
 
-def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
+def direct(f,lower, upper, double vfrac=-1,int maxf=2000,debugout=True):
+    cdef bool stoponvolume = vfrac>0
     debug_batches=[]
     #iterator indicies
     cdef int i,j,k
@@ -214,8 +215,7 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
 
     cdef int D = ub.shape[0]
 
-    #vfrac>=volume of the smallest rectangle. the side will be 1/3**gridmax. There are gridmax+1 side lengths
-    cdef int gridmax = int(-np.log(vfrac)/(D*np.log(3.)))+1
+    cdef int gridmax = 19#TODO I can improve this by being careful with powers of three
     print 'gridmax {}'.format(gridmax)
     G_ = np.empty(shape=[(maxf+gridmax*2*D+1),D*3+1],dtype=np.dtype('i8'))
     Y_ = np.empty(shape=[(maxf+gridmax*2*D+1)],dtype=np.dtype('d'))
@@ -243,16 +243,23 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
         debug_batches.append(nToEv)
     n = splitpart2(G[0,:],D,G[1:,:],Y[1:],m/2)
 
+    #number of rectangles to be split
     cdef int nr
 
+    #incumbent tracking, skip the first check
+    cdef int tailprev = 0
+    cdef double ymin = Y[0]
+    cdef int imin = 0
+    cdef double volume=1
+
     cdef bint stop = False
-    i=0
+    cdef int batch=1
     while not stop:
         #print "___________________________"
         I,R,Z = getporect1(G[:tail,:],Y[:tail],gridmax+1,D)
         P = getporect2(I,R,Z)
 
-        #state=[copy.deepcopy([G_[:tail,:],Y_[:tail],P])]
+        state=[copy.deepcopy([G_[:tail,:],Y_[:tail],P])]
 
         nr = P.shape[0]
         heads = np.empty(nr,dtype=np.dtype('i8'))
@@ -272,17 +279,29 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
             debug_batches.append(nToEv)
         for j in range(nr):
             n = splitpart2(G[<int>P[j],:],D,G[heads[j]:,:],Y[heads[j]:],splits[j]/2)
+
+        #update the incumbent solution
+        for i in range(tailprev,tail):
+            if Y[i]<ymin:
+                ymin=Y[i]
+                imin=i
+        tailprev=tail
+
+        #check stop conditions...
+        #max evaluations
         if tail>=maxf:
             stop=True
-        i+=1
+        #volume
+        if stoponvolume:
+            volume=1.
+            for i in range(D):
+                volume/=3.**G[imin,2*D+1+i]
+            if volume<vfrac:
+                stop=True
+
+        batch+=1
 
 
-    cdef double ymin = Y[0]
-    cdef int imin = 0
-    for i in range(tail):
-        if Y[i]<ymin:
-            ymin=Y[i]
-            imin=i
 
     xmin = [<double>G[imin,2*i+1]/<double>G[imin,2*i+2] for i in range(D)]
     print 'normxmin {}'.format(xmin)
@@ -291,7 +310,7 @@ def direct(f,lower, upper, double vfrac=0.0000001,int maxf=2000,debugout=True):
     print 'truexmin {}'.format(xmin)
     print 'ymin {}'.format(ymin)
     if debugout:
-        return xmin,ymin,[G_[:tail,:],Y_[:tail],debug_batches]
+        return xmin,ymin,state,debug_batches
     else:
         return xmin,ymin
 
